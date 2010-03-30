@@ -26,7 +26,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.util.ArrayList;
 import java.util.Collection;
 
 
@@ -43,12 +42,20 @@ public class Changer {
 	
 	private String defaultCopyright;
 	
-	public Changer(File dir, File newLicenseFile, Collection<Language> languages, String defaultProgramName, String defaultCopyright) {
+	private boolean verbose;
+	
+	private boolean list;
+	
+	public Changer(File dir, File newLicenseFile, Collection<Language> languages, String defaultProgramName, 
+		             String defaultCopyright, boolean verbose, boolean list)
+	{
 		this.dir = dir;
 		this.newLicenseFile = newLicenseFile;
 		this.languages = languages;
 		this.defaultProgramName = defaultProgramName;
 		this.defaultCopyright = defaultCopyright;
+		this.verbose = verbose;
+		this.list = list;
 	}
 	
 	public void changeLicense() {
@@ -116,15 +123,36 @@ public class Changer {
 					position = 4;
 				} else if (!s.startsWith(language.getCommentMarker())) {
 					position = 5; // indicates a not found license --> restart
+					if (programName.length() == 0 || copyrightHolders.length() == 0) {
+						// Since no default program name or copyright are given 
+						// no license information will be added into this file
+						// which doesn't contain any license information
+						reader.close();
+						if (verbose) {
+							System.out.println(file.getName() + " : No license added");
+						}
+						return;
+					}
 				}
 			}
 			if (position == 5) {
 				reader.close();
 				reader = new BufferedReader(new InputStreamReader(new FileInputStream(file)));
+				if (verbose) {
+					System.out.println(file.getName() + " : License added");
+				} else {
+					System.out.println(file.getName());
+				}
+			} else {
+				// Files containing a license
+				if (verbose) {
+					System.out.println(file.getName() + " : License changed");
+				} else if (list) {
+					System.out.println(file.getName());
+				}
 			}
 			
 			String[] fileContent = getBufferedReaderContent(reader).split("\n");
-			
 			
 			BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file)));
 			
@@ -172,19 +200,4 @@ public class Changer {
 		return buffer.toString();
 	}
 	
-	public static void main(String[] args) {
-		if (args == null || args.length != 4) {
-			System.out.println("Usage:\n java -jar licensechanger.jar /path/to/source /license/file.txt \"Program name\" \"Default copyright\"\n where DIALECT can be \"cpp\" or \"java\"");
-			return;
-		}
-		args[0] = args[0].replace("~", System.getProperty("user.home"));
-		args[2] = args[2].replace("~", System.getProperty("user.home"));
-		
-		ArrayList<Language> languages = new ArrayList<Language>(2);
-		languages.add(new Java());
-		languages.add(new Cpp());
-		
-		Changer changer = new Changer(new File(args[0]), new File(args[1]), languages, args[2], args[3]);
-		changer.changeLicense();
-	}
 }
